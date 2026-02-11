@@ -109,6 +109,51 @@ class AMRSocketEmitter {
       AMRLogger.error('SocketEmitter', 'Failed to emit AMR offline', error);
     }
   }
+
+  emitRerouteStarted(data) {
+    try {
+      eventEmitter.emit(AMR_EVENTS.REROUTE_STARTED, data);
+      AMRLogger.info('SocketEmitter', 'Re-route started event emitted', data);
+    } catch (error) {
+      AMRLogger.error('SocketEmitter', 'Failed to emit re-route started', error);
+    }
+  }
+
+  emitRerouteSuccess(data) {
+    try {
+      eventEmitter.emit(AMR_EVENTS.REROUTE_SUCCESS, data);
+      AMRLogger.info('SocketEmitter', 'Re-route success event emitted', data);
+    } catch (error) {
+      AMRLogger.error('SocketEmitter', 'Failed to emit re-route success', error);
+    }
+  }
+
+  emitRerouteFailed(data) {
+    try {
+      eventEmitter.emit(AMR_EVENTS.REROUTE_FAILED, data);
+      AMRLogger.info('SocketEmitter', 'Re-route failed event emitted', data);
+    } catch (error) {
+      AMRLogger.error('SocketEmitter', 'Failed to emit re-route failed', error);
+    }
+  }
+
+  emitMoving(data) {
+    try {
+      eventEmitter.emit(AMR_EVENTS.AMR_MOVING, data);
+      AMRLogger.info('SocketEmitter', `AMR moving: ${data.from} → ${data.to}`);
+    } catch (error) {
+      AMRLogger.error('SocketEmitter', 'Failed to emit moving', error);
+    }
+  }
+
+  emitArrived(data) {
+    try {
+      eventEmitter.emit(AMR_EVENTS.AMR_ARRIVED, data);
+      AMRLogger.info('SocketEmitter', `AMR arrived at ${data.nodeId}`);
+    } catch (error) {
+      AMRLogger.error('SocketEmitter', 'Failed to emit arrived', error);
+    }
+  }
 }
 
 module.exports = new AMRSocketEmitter();

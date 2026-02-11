@@ -5,7 +5,7 @@ const RedisStorage = require('./storage/RedisStorage');
 class AMRPollerManager {
   constructor() {
     this.pollers = new Map();
-    this.storage = new RedisStorage();
+    this.storage = RedisStorage;
   }
 
   addAMR(amrConfig) {

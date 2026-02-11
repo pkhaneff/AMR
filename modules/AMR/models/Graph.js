@@ -1,8 +1,26 @@
 const Node = require('./Node');
 
 class Graph {
-  constructor() {
+  constructor(config = null) {
     this.nodes = new Map();
+
+    if (config) {
+      this.buildFromConfig(config);
+    }
+  }
+
+  buildFromConfig(config) {
+    const { nodes, connections } = config;
+
+    Object.values(nodes).forEach(nodeData => {
+      this.addNode(nodeData.id, nodeData.x, nodeData.y);
+    });
+
+    Object.entries(connections).forEach(([fromId, neighbors]) => {
+      neighbors.forEach(toId => {
+        this.addEdge(fromId, toId);
+      });
+    });
   }
 
   addNode(id, x, y) {

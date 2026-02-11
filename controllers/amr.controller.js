@@ -1,62 +1,45 @@
-const amrService = require('../modules/AMR/services/amr.service');
-const { manager } = require('../modules/AMR');
+const AMRCoordinator = require('../modules/AMR/coordination/AMRCoordinator');
+const { manager: AMRManager } = require('../modules/AMR');
+const Graph = require('../modules/AMR/models/Graph');
+const nodesConfig = require('../modules/AMR/nodes.config');
+
+const graph = new Graph(nodesConfig);
+const coordinator = new AMRCoordinator(AMRManager, graph);
 
 class AMRController {
   async generatePath(req, res) {
     try {
       const { start, end, action, amr_id } = req.body;
 
-      if (!start || !end) {
+      if (!start || !end || !amr_id) {
         return res.status(400).json({
           success: false,
-          message: 'Start and end nodes are required',
+          message: 'start, end, and amr_id are required',
         });
       }
 
-      if (!amr_id) {
-        return res.status(400).json({
-          success: false,
-          message: 'AMR ID (amr_id) is required',
-        });
+      const operations = {};
+      if (action) {
+        operations[start] = 'pickup';   // Pickup cargo at start
+        operations[end] = 'dropoff';    // Dropoff cargo at end
       }
-
-      const validation = await amrService.validateAndPreparePath(start, end, action, amr_id);
-
-      if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          message: validation.error,
-        });
-      }
-
-      const taskId = `amr_task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       res.status(200).json({
         success: true,
         message: 'Task queued successfully',
         data: {
-          taskId,
-          move_task_list: validation.move_task_list,
-          status: 'queued',
           amrId: amr_id,
           start,
           end,
-          action,
+          operations,
+          description: action
+            ? `AMR will pickup cargo at ${start} and dropoff at ${end}`
+            : `AMR will move from ${start} to ${end}`,
         },
       });
 
-      const taskData = {
-        taskId,
-        amrId: amr_id,
-        start,
-        end,
-        action,
-        path: validation.path,
-        move_task_list: validation.move_task_list,
-      };
-
-      manager.executeTaskAsync(taskData).catch((error) => {
-        console.error(`[AMRController] Background task execution failed for ${taskId}:`, error);
+      coordinator.executeTask(amr_id, start, end, operations).catch((error) => {
+        console.error(`[AMRController] Task execution failed:`, error);
       });
     } catch (error) {
       return res.status(500).json({

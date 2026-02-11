@@ -35,6 +35,14 @@ class AMRLogger {
   static debug(module, message, data = {}) {
     logger.debug(`[AMR-${module}] ${message}`, data);
   }
+
+  static info(module, message, data = {}) {
+    logger.info(`[AMR-${module}] ${message}`, data);
+  }
+
+  static warn(module, message, data = {}) {
+    logger.warn(`[AMR-${module}] ${message}`, data);
+  }
 }
 
 module.exports = AMRLogger;

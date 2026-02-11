@@ -2,9 +2,9 @@ const HttpClient = require('./HttpClient');
 const { API_ENDPOINTS } = require('../config/api.endpoints');
 
 class StatusApiClient {
-  constructor() {
+  constructor(port) {
     this.httpClient = new HttpClient();
-    this.port = API_ENDPOINTS.STATUS.PORT;
+    this.port = port || API_ENDPOINTS.STATUS.PORT;
   }
 
   async getLocation(amrIp) {

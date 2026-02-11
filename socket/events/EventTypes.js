@@ -22,8 +22,17 @@ const AMR_EVENTS = {
   UTURN_COMPLETED: 'amr:uturn:completed',
   UTURN_FAILED: 'amr:uturn:failed',
 
+  // Re-route Events
+  REROUTE_STARTED: 'amr:reroute:started',
+  REROUTE_SUCCESS: 'amr:reroute:success',
+  REROUTE_FAILED: 'amr:reroute:failed',
+
   // AMR Status Events
   AMR_OFFLINE: 'amr:offline',
+
+  // Movement Events
+  AMR_MOVING: 'amr:moving',
+  AMR_ARRIVED: 'amr:arrived',
 };
 
 module.exports = {

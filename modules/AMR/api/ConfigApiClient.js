@@ -2,9 +2,9 @@ const HttpClient = require('./HttpClient');
 const { API_ENDPOINTS } = require('../config/api.endpoints');
 
 class ConfigApiClient {
-  constructor() {
+  constructor(port) {
     this.httpClient = new HttpClient();
-    this.port = API_ENDPOINTS.CONFIGURATION.PORT;
+    this.port = port || API_ENDPOINTS.CONFIGURATION.PORT;
   }
 
   async lockConfig(amrIp) {

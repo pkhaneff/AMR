@@ -1,104 +1,44 @@
-const StateRepository = require('../state/StateRepository');
-const ReservationRepository = require('../reservation/ReservationRepository');
+const AMRStateManager = require('../state/AMRStateManager');
 const AMRLogger = require('../utils/AMRLogger');
 
 class DeadlockDetector {
-  async detectDeadlock(amrStates = null) {
-    try {
-      const states = amrStates || (await StateRepository.getAllStates());
-      const waitingAMRs = states.filter((s) => s.status === 'MOVING');
+  async detectDeadlock() {
+    const states = await AMRStateManager.getAllStates();
 
-      if (waitingAMRs.length < 2) {
-        return null;
-      }
-
-      const graph = await this.buildWaitGraph(waitingAMRs);
-      const cycle = this.findCycle(graph);
-
-      if (cycle) {
-        AMRLogger.conflict('Deadlock detected', { cycle });
-        return {
-          detected: true,
-          cycle,
-          amrCount: cycle.length,
-        };
-      }
-
-      return null;
-    } catch (error) {
-      AMRLogger.error('Deadlock', 'Detection failed', error);
+    if (states.length !== 2) {
+      AMRLogger.warn('DeadlockDetector', 'Expected 2 AMRs, found', states.length);
       return null;
     }
-  }
 
-  async buildWaitGraph(amrStates) {
-    const graph = new Map();
+    const [amr1, amr2] = states;
 
-    for (const amr of amrStates) {
-      const reservedPath = amr.reservedPath || [];
-      const waitingFor = [];
+    if (amr1.status === 'WAITING' && amr2.status === 'WAITING') {
+      const victim = this.selectVictim(amr1, amr2);
 
-      for (const nodeId of reservedPath) {
-        const reservation = await ReservationRepository.getReservation(nodeId);
+      AMRLogger.warn('DeadlockDetector', 'Deadlock detected', {
+        amr1: amr1.amrId,
+        amr2: amr2.amrId,
+        victim: victim
+      });
 
-        if (reservation && reservation.amrId !== amr.amrId) {
-          if (!waitingFor.includes(reservation.amrId)) {
-            waitingFor.push(reservation.amrId);
-          }
-        }
-      }
-
-      graph.set(amr.amrId, waitingFor);
-    }
-
-    return graph;
-  }
-
-  findCycle(graph) {
-    const visited = new Set();
-    const recursionStack = new Set();
-
-    for (const [node] of graph) {
-      if (this.detectCycleUtil(node, graph, visited, recursionStack, [])) {
-        return Array.from(recursionStack);
-      }
+      return {
+        detected: true,
+        amrs: [amr1.amrId, amr2.amrId],
+        victim: victim
+      };
     }
 
     return null;
   }
 
-  detectCycleUtil(node, graph, visited, recursionStack, path) {
-    visited.add(node);
-    recursionStack.add(node);
-    path.push(node);
+  selectVictim(amr1, amr2) {
+    if (amr1.stepsTaken < amr2.stepsTaken) return amr1.amrId;
+    if (amr2.stepsTaken < amr1.stepsTaken) return amr2.amrId;
 
-    const neighbors = graph.get(node) || [];
+    if (!amr1.hasCargo && amr2.hasCargo) return amr1.amrId;
+    if (!amr2.hasCargo && amr1.hasCargo) return amr2.amrId;
 
-    for (const neighbor of neighbors) {
-      if (!visited.has(neighbor)) {
-        if (this.detectCycleUtil(neighbor, graph, visited, recursionStack, path)) {
-          return true;
-        }
-      } else if (recursionStack.has(neighbor)) {
-        return true;
-      }
-    }
-
-    recursionStack.delete(node);
-    path.pop();
-    return false;
-  }
-
-  breakDeadlock(deadlockCycle) {
-    if (!deadlockCycle || deadlockCycle.length === 0) {
-      return null;
-    }
-
-    return {
-      action: 'FORCE_RELEASE',
-      targetAMR: deadlockCycle[0],
-      reason: 'Breaking deadlock cycle',
-    };
+    return amr2.amrId;
   }
 }
 

@@ -5,20 +5,20 @@ const RedisStorage = require('./storage/RedisStorage');
 const MotionController = require('./control/MotionController');
 const TaskController = require('./control/TaskController');
 const ConfigController = require('./control/ConfigController');
-const amrService = require('./services/amr.service');
-const AMRTaskExecutor = require('./services/AMRTaskExecutor');
+
+// Legacy modules removed after refactor
 
 class AMRManager {
   constructor() {
     this.amrs = new Map();
     this.pollerManager = new PollerManager();
-    this.storage = new RedisStorage();
+    this.storage = RedisStorage;
     this.executor = null;
   }
 
   setEventHandler(handler) {
-    this.executor = new AMRTaskExecutor(handler);
-    console.log('[AMRManager] Event handler and executor set');
+    this.eventHandler = handler;
+    console.log('[AMRManager] Event handler set');
   }
 
   initialize(configs) {
@@ -27,12 +27,13 @@ class AMRManager {
   }
 
   addAMR(config) {
-    const { id, ip } = config;
-    const apiClient = new AMRApiClient(id, ip);
+    const { id, ip, port } = config;
+    const apiClient = new AMRApiClient(id, ip, port);
 
     this.amrs.set(id, {
       id,
       ip,
+      port,
       apiClient,
       motion: new MotionController(apiClient),
       task: new TaskController(apiClient),
@@ -40,7 +41,7 @@ class AMRManager {
     });
 
     this.pollerManager.addPoller(id, new StatusPoller(apiClient, this.storage));
-    console.log(`[AMRManager] Added AMR ${id} (${ip})`);
+    console.log(`[AMRManager] Added AMR ${id} (${ip}:${port})`);
   }
 
   removeAMR(amrId) {
@@ -89,32 +90,19 @@ class AMRManager {
   }
 
   async executeTask(amrId, taskRequest) {
-    const { start, end, action } = taskRequest;
-    const { move_task_list } = amrService.generatePath(start, end, action);
-
     const amr = this.getAMR(amrId);
     if (!amr) {
       throw new Error(`AMR ${amrId} not found`);
     }
 
-    await amr.apiClient.goToTargetList(move_task_list);
-    return { success: true, data: { move_task_list, amr_id: amrId, start, end, action } };
-  }
-
-  async executeTaskAsync(taskData) {
-    const amr = this.getAMR(taskData.amrId);
-    if (!amr) {
-      throw new Error(`AMR ${taskData.amrId} not found`);
-    }
-    if (!this.executor) {
-      throw new Error('Executor not initialized');
+    const { target } = taskRequest;
+    if (target) {
+      await amr.apiClient.goToTarget(target);
+      return { success: true, data: { amr_id: amrId, target } };
     }
 
-    // Note: amrService should have been used to prepare taskData.path and taskData.move_task_list
-    return this.executor.execute(amr, taskData);
+    throw new Error('Task request must include target');
   }
 }
-
-module.exports = AMRManager;
 
 module.exports = AMRManager;

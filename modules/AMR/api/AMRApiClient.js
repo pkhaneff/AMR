@@ -4,14 +4,15 @@ const NavigationApiClient = require('./NavigationApiClient');
 const ConfigApiClient = require('./ConfigApiClient');
 
 class AMRApiClient {
-  constructor(amrId, amrIp) {
+  constructor(amrId, amrIp, port) {
     this.amrId = amrId;
     this.amrIp = amrIp;
+    this.port = port;
 
-    this.status = new StatusApiClient();
-    this.control = new ControlApiClient();
-    this.navigation = new NavigationApiClient();
-    this.config = new ConfigApiClient();
+    this.status = new StatusApiClient(port);
+    this.control = new ControlApiClient(port);
+    this.navigation = new NavigationApiClient(port);
+    this.config = new ConfigApiClient(port);
   }
 
   async getLocation() {

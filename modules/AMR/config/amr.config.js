@@ -3,11 +3,13 @@ module.exports = {
     {
       id: 'AMR001',
       ip: '127.0.0.1',
+      port: 19204,
       name: 'AMR-Simulator-01',
     },
     {
       id: 'AMR002',
       ip: '127.0.0.1',
+      port: 19205,
       name: 'AMR-Simulator-02',
     },
   ],

@@ -2,9 +2,9 @@ const HttpClient = require('./HttpClient');
 const { API_ENDPOINTS } = require('../config/api.endpoints');
 
 class NavigationApiClient {
-  constructor() {
+  constructor(port) {
     this.httpClient = new HttpClient();
-    this.port = API_ENDPOINTS.NAVIGATION.PORT;
+    this.port = port || API_ENDPOINTS.NAVIGATION.PORT;
   }
 
   async pauseTask(amrIp) {
@@ -23,8 +23,10 @@ class NavigationApiClient {
     return await this._sendNavigationCommand(amrIp, API_ENDPOINTS.NAVIGATION.GO_TO_TARGET, target);
   }
 
-  async goToTargetList(amrIp, targets) {
-    return await this._sendNavigationCommand(amrIp, API_ENDPOINTS.NAVIGATION.GO_TO_TARGET_LIST, { targets });
+  async goToTargetList(amrIp, moveTaskList) {
+    return await this._sendNavigationCommand(amrIp, API_ENDPOINTS.NAVIGATION.GO_TO_TARGET_LIST, {
+      move_task_list: moveTaskList
+    });
   }
 
   async translate(amrIp, params) {

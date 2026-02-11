@@ -145,6 +145,25 @@ class ReservationRepository {
       return false;
     }
   }
+
+  async getAllReservedNodes(excludeAmrId = null) {
+    try {
+      const allReservations = await this.getAllReservations();
+      const reservedNodes = [];
+
+      for (const reservation of allReservations) {
+        if (excludeAmrId && reservation.amrId === excludeAmrId) {
+          continue;
+        }
+        reservedNodes.push(reservation.nodeId);
+      }
+
+      return reservedNodes;
+    } catch (error) {
+      AMRLogger.error('Reservation', 'Failed to get all reserved nodes', error);
+      return [];
+    }
+  }
 }
 
 module.exports = new ReservationRepository();

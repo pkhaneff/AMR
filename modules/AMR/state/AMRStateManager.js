@@ -1,152 +1,72 @@
-const StateRepository = require('./StateRepository');
-const StateValidator = require('./StateValidator');
+const RedisStorage = require('../storage/RedisStorage');
 const AMRLogger = require('../utils/AMRLogger');
 
 class AMRStateManager {
-  async updateState(amrId, updates) {
-    try {
-      const currentState = await StateRepository.getState(amrId);
-
-      if (!currentState) {
-        const newState = {
-          amrId,
-          currentNode: updates.currentNode || null,
-          status: 'IDLE',
-          currentTask: null,
-          reservedPath: [],
-          battery: updates.battery || 100,
-          cargo: updates.cargo || null,
-          updatedAt: Date.now(),
-        };
-
-        StateValidator.validateState(newState);
-        await StateRepository.setState(amrId, newState);
-
-        AMRLogger.state('State initialized', { amrId });
-        return newState;
-      }
-
-      if (updates.status && updates.status !== currentState.status) {
-        const canChange = await StateValidator.canChangeStatus(amrId, updates.status);
-        if (!canChange) {
-          throw new Error(`Invalid transition: ${currentState.status} -> ${updates.status}`);
-        }
-      }
-
-      const updatedState = {
-        ...currentState,
-        ...updates,
-        updatedAt: Date.now(),
-      };
-
-      await StateRepository.setState(amrId, updatedState);
-      return updatedState;
-    } catch (error) {
-      AMRLogger.error('StateManager', 'Failed to update state', error);
-      throw error;
-    }
+  constructor() {
+    this.statePrefix = 'amr:state:';
+    this.allStatesKey = 'amr:states:all';
   }
 
   async getState(amrId) {
-    return await StateRepository.getState(amrId);
+    return await RedisStorage.get(`${this.statePrefix}${amrId}`);
   }
 
   async getAllStates() {
-    return await StateRepository.getAllStates();
-  }
+    const amrIds = await RedisStorage.sMembers(this.allStatesKey);
+    const states = [];
 
-  async getIdleAMRs() {
-    return await StateRepository.getStatesByStatus('IDLE');
-  }
-
-  async getAMRsByStatus(status) {
-    return await StateRepository.getStatesByStatus(status);
-  }
-
-  async setCurrentTask(amrId, taskId) {
-    return await StateRepository.updateState(amrId, {
-      currentTask: taskId,
-      status: 'MOVING',
-    });
-  }
-
-  async clearCurrentTask(amrId) {
-    return await StateRepository.updateState(amrId, {
-      currentTask: null,
-      status: 'IDLE',
-      reservedPath: [],
-    });
-  }
-
-  async updateLocation(amrId, locationData) {
-    try {
-      const updates = {
-        currentNode: locationData.current_node || null,
-        coordinates: {
-          x: locationData.x,
-          y: locationData.y,
-          angle: locationData.angle,
-        },
-        updatedAt: Date.now(),
-      };
-
-      await StateRepository.updateState(amrId, updates);
-      return updates;
-    } catch (error) {
-      AMRLogger.error('StateManager', 'Failed to update location', error);
-      throw error;
+    for (const amrId of amrIds) {
+      const state = await this.getState(amrId);
+      if (state) states.push(state);
     }
+
+    return states;
   }
 
-  async setReservedPath(amrId, path) {
-    return await StateRepository.updateState(amrId, { reservedPath: path });
+  async saveState(amrId, state) {
+    await RedisStorage.save(`${this.statePrefix}${amrId}`, state);
+    await RedisStorage.sAdd(this.allStatesKey, amrId);
+  }
+
+  async setStatus(amrId, status) {
+    const state = await this.getState(amrId) || { amrId };
+    state.status = status;
+    state.updatedAt = Date.now();
+    await this.saveState(amrId, state);
   }
 
   async setCargoStatus(amrId, hasCargo) {
-    try {
-      const updates = {
-        hasCargo: Boolean(hasCargo),
-        updatedAt: Date.now(),
-      };
-
-      await StateRepository.updateState(amrId, updates);
-      AMRLogger.state('Cargo status updated', { amrId, hasCargo });
-      return updates;
-    } catch (error) {
-      AMRLogger.error('StateManager', 'Failed to set cargo status', error);
-      throw error;
-    }
+    const state = await this.getState(amrId) || { amrId };
+    state.hasCargo = Boolean(hasCargo);
+    state.updatedAt = Date.now();
+    await this.saveState(amrId, state);
+    AMRLogger.state('Cargo status updated', { amrId, hasCargo });
   }
 
   async getCargoStatus(amrId) {
-    try {
-      const state = await StateRepository.getState(amrId);
-      return state ? state.hasCargo || false : false;
-    } catch (error) {
-      AMRLogger.error('StateManager', 'Failed to get cargo status', error);
-      return false;
-    }
+    const state = await this.getState(amrId);
+    return state ? state.hasCargo || false : false;
   }
 
-  async updateCargoFromEvent(amrId, eventType) {
-    try {
-      let hasCargo = false;
+  async updateCoordinates(amrId, coordinates) {
+    const state = await this.getState(amrId) || { amrId };
+    state.coordinates = coordinates;
+    state.currentNode = coordinates.current_node || state.currentNode;
+    state.updatedAt = Date.now();
+    await this.saveState(amrId, state);
+  }
 
-      if (eventType === 'jackupload') {
-        hasCargo = true;
-        AMRLogger.info('StateManager', `AMR ${amrId} loaded cargo`);
-      } else if (eventType === 'jackload') {
-        hasCargo = false;
-        AMRLogger.info('StateManager', `AMR ${amrId} unloaded cargo`);
-      } else {
-        throw new Error(`Unknown event type: ${eventType}`);
-      }
+  async incrementSteps(amrId) {
+    const state = await this.getState(amrId) || { amrId };
+    state.stepsTaken = (state.stepsTaken || 0) + 1;
+    await this.saveState(amrId, state);
+  }
 
-      return await this.setCargoStatus(amrId, hasCargo);
-    } catch (error) {
-      AMRLogger.error('StateManager', 'Failed to update cargo from event', error);
-      throw error;
-    }
+  async updateLocation(amrId, locationData) {
+    const state = await this.getState(amrId) || { amrId };
+    state.location = locationData;
+    state.updatedAt = Date.now();
+    await this.saveState(amrId, state);
   }
 }
 

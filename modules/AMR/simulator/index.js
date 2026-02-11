@@ -16,7 +16,6 @@ function startSimulators() {
   console.log('AMR001: http://127.0.0.1:19204');
   console.log('AMR002: http://127.0.0.1:19205');
   console.log('Movement duration: 3 seconds');
-  console.log('Handles all API codes (STATUS, CONTROL, NAVIGATION, CONFIG)\n');
 }
 
 function stopSimulators() {
