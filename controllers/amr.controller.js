@@ -1,10 +1,10 @@
-const AMRCoordinator = require('../modules/AMR/coordination/AMRCoordinator');
+const PreReleaseCoordinator = require('../modules/AMR/coordination/PreReleaseCoordinator');
 const { manager: AMRManager } = require('../modules/AMR');
 const Graph = require('../modules/AMR/models/Graph');
 const nodesConfig = require('../modules/AMR/nodes.config');
 
 const graph = new Graph(nodesConfig);
-const coordinator = new AMRCoordinator(AMRManager, graph);
+const coordinator = new PreReleaseCoordinator(AMRManager, graph);
 
 class AMRController {
   async generatePath(req, res) {

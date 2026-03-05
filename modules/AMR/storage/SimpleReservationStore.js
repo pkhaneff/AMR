@@ -1,4 +1,5 @@
 const RedisStorage = require('./RedisStorage');
+const NodeReleaseEventBus = require('../events/NodeReleaseEventBus');
 
 class SimpleReservationStore {
   constructor() {
@@ -34,6 +35,9 @@ class SimpleReservationStore {
 
     if (owner === amrId) {
       await RedisStorage.del(key);
+
+      // Emit event NGAY LẬP TỨC khi release node
+      NodeReleaseEventBus.notifyNodeReleased(nodeId, amrId);
     }
   }
 
@@ -48,6 +52,10 @@ class SimpleReservationStore {
       const owner = await RedisStorage.getRaw(key);
       if (owner === amrId) {
         await RedisStorage.del(key);
+
+        // Emit event cho mỗi node được release
+        const nodeId = key.replace(this.nodePrefix, '');
+        NodeReleaseEventBus.notifyNodeReleased(nodeId, amrId);
       }
     }
   }
